@@ -1,0 +1,6 @@
+IVa3 IIIa3
+IVa3 IVa2
+Ia2 Ia1
+Ia1 Ib1
+Ia1 IIa1
+Va3 IVa3
