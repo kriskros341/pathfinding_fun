@@ -1,4 +1,5 @@
 from typing import Generic, Tuple, List, Optional, Type, TypeVar, cast, Any
+import math
 import string
 import re
 from itertools import permutations
@@ -14,7 +15,6 @@ DEFAULT_MOVEMENT_OPTIONS = [cast(Vector3, x) for x in DEFAULT_MOVEMENT_OPTIONS]
 ALPHABET = list(string.ascii_lowercase)
 
 
-
 class Queue():
     def __init__(self, *args):
         self.lst = []
@@ -27,22 +27,79 @@ class Queue():
         return self.lst.pop(0)
 
 
-def sum_V3(t1: Vector3, t2: Vector3): 
+class PrioQueue(Queue):
+    class PrioItem:
+        def __init__(self, value, prio):
+            self.value = value
+            self.prio = prio
+    def __init__(self):
+        super().__init__()
+
+    def add(self, item, prio = 0):
+        super().add(PrioQueue.PrioItem(item, prio))
+        self.lst = sorted(self.lst, key=lambda x: x.prio)
+
+    def pop(self):
+        return self.lst.pop(0).value
+
+
+def sum_V3(t1: Vector3, t2: Vector3) -> Vector3: 
     return t1[0] + t2[0], t1[1] + t2[1], t1[2] + t2[2]
 
+BlockerList = List[Tuple[Vector3, Vector3]]
 
-
-def createPath(boardSize: Vector3, source: Vector3, goal: Vector3, bannedPaths: Optional[List[Tuple[Vector3, Vector3]]] = None):
-    if not bannedPaths:
-        bannedPaths = []
-    tiles: List[Vector3] = [(x, y, z) for x in range(boardSize[0]) for y in range(boardSize[1]) for z in range(boardSize[2])]
-    distances = {x: 0 for x in tiles}
-    paths = {x: f"{source[0]} {source[1]} {source[2]}" for x in tiles}
-    covered = [source]
+def flood3d(board: List[Vector3], source: Vector3, goal: Vector3, blocked: BlockerList):
+    distances = {x: 0 for x in board}
     frontierQueue = Queue(source)
     frontierQueue.add(source)
-    # ---------
-    # flood algorithm
+    covered = [source]
+    paths = {x: f"{source[0]} {source[1]} {source[2]}" for x in board}
+    iteration_count=0
+    found = False
+    while not frontierQueue.is_empty():
+        current = frontierQueue.pop()
+        covered.append(current)
+        for movementOption in DEFAULT_MOVEMENT_OPTIONS:
+            nextTile = sum_V3(current, movementOption)
+            if nextTile not in board:
+                continue;
+            if (current, nextTile) in blocked or (nextTile, current) in blocked:
+                continue
+            if nextTile not in covered and nextTile not in frontierQueue.lst:
+                iteration_count+=1
+                frontierQueue.add(nextTile)
+                distances[nextTile] = distances[current] + 1
+                paths[nextTile] = \
+                        f"{paths[current]} -> {nextTile[0]} {nextTile[1]} {nextTile[2]}"
+                if nextTile == goal:
+                    found = True
+        if found:
+            break
+    print(iteration_count)
+    return paths[goal]
+
+def pretty_format(arr: List[Tuple[Any, Any, Any]], b: int):
+    total = ""
+    for i, v in enumerate(arr):
+        total = f"{total} {v[0]}|{v[1]}|{v[2]}"
+        if (i+1) % b == 0:
+            total = f"{total} \n"
+    return total
+def cubic_distance(t1, t2):
+    return math.sqrt(
+            (t1[0]-t2[0])**2+
+            (t1[1]-t2[1])**2+
+            (t1[2]-t2[2])**2
+            )
+def test_a_star(tiles: List[Vector3], source: Vector3, goal: Vector3,  blocked: BlockerList):
+    distances = {x: 0 for x in tiles}
+    paths = {x: f"{source[0]} {source[1]} {source[2]}" for x in tiles}
+    
+    covered = [source]
+    frontierQueue = PrioQueue()
+    frontierQueue.add(source)
+    iteration_count = 0
+    found = False
     while not frontierQueue.is_empty():
         current = frontierQueue.pop()
         covered.append(current)
@@ -50,16 +107,34 @@ def createPath(boardSize: Vector3, source: Vector3, goal: Vector3, bannedPaths: 
             nextTile = sum_V3(current, movementOption)
             if nextTile not in tiles:
                 continue;
-            if (current, nextTile) in bannedPaths or (nextTile, current) in bannedPaths:
+            if (current, nextTile) in blocked or (nextTile, current) in blocked:
                 continue
-            if nextTile not in covered and nextTile not in frontierQueue.lst:
-                frontierQueue.add(nextTile)
+            if nextTile not in covered and nextTile not in [x.value for x in frontierQueue.lst]:
+                iteration_count += 1
+                frontierQueue.add(nextTile, cubic_distance(nextTile,goal))
                 distances[nextTile] = distances[current] + 1
                 paths[nextTile] = \
                         f"{paths[current]} -> {nextTile[0]} {nextTile[1]} {nextTile[2]}"
+                if nextTile == goal:
+                    found = True
 
-    print(f"distance: {distances[goal]}")
-    print(f"path: {paths[goal]}")
+        if found:
+            break
+    print(iteration_count)
+    return paths[goal]
+
+def createPath(boardSize: Vector3, source: Vector3, goal: Vector3, bannedPaths: Optional[BlockerList] = None):
+    if not bannedPaths:
+        bannedPaths = []
+    tiles: List[Vector3] = [(x, y, z) for x in range(boardSize[0]) for y in range(boardSize[1]) for z in range(boardSize[2])]
+    # ---------
+    # flood algorithm
+    path = flood3d(tiles, source, goal, bannedPaths)
+    print(path)
+    # A_star algorithm
+    path = test_a_star(tiles, source, goal, bannedPaths)
+    print(path)
+    
 
 # TODO
 # Abstract board creation away
@@ -109,7 +184,7 @@ def parseBannedPaths(data: List[str]):
         string = string[letters_of_interest.span(0)[1]:]
         z = int(letters_of_interest.group(0))
 
-        result: Vector3 = (x, y, z)
+        result = sum_V3((x, y, z), (-1, -1, -1))
         results.append(result)
     return results
 
@@ -122,7 +197,7 @@ def collect_groups_of(data: List[Any], target_length: int, as_type: Type[T] = No
     for idx in range(0, len(data), target_length):
         result = data[idx:idx + target_length]
         if as_type:
-            result = cast(T, result)
+            result = cast(T, tuple(result))
         results.append(result)
     return results
 
@@ -137,7 +212,10 @@ def main():
                 2, 
                 Tuple[Vector3, Vector3]
             ) + testData
-        print(bannedPaths)
+        bannedPaths.pop()
+        bannedPaths.pop()
+        bannedPaths.pop()
+        bannedPaths.pop()
         createPath(
                 boardSize=(5, 5, 5), 
                 source=(0, 0, 0), 

@@ -1,5 +1,5 @@
 import re
-regex = r"^((M{0,3}(CM)?)(D{0,3})(CD)?(C{0,3})(XC)?(L{0,3})(XL)?(X{0,3})(IX)?(V{0,3})(IV)?I{0,3})"
+regex = r"^M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$" 
 def validate_roman(string: str):
     result = re.match(regex, string)
     return result is not None
@@ -35,6 +35,7 @@ def testum_romanum():
         print(f"running test nr {case}")
         assert case == roman_to_human(human_to_roman(case))
     print("TESTS DONE")
+
 
 def human_to_roman(x: int):
     res = []
@@ -79,3 +80,7 @@ def human_to_roman(x: int):
             x -= 1
             res.append("I")
     return "".join(res)
+
+
+if __name__ == "__main__":
+    testum_romanum()
