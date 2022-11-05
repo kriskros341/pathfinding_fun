@@ -87,6 +87,49 @@ def flood3d(board: List[Vector3], source: Vector3, goal: Vector3, blocked: Block
             break
     return paths[goal]
 
+def flood3d_detailed(board: List[Vector3], source: Vector3, goal: Vector3, blocked: BlockerList):
+    distances = {x: 0 for x in board}
+    frontierQueue = Queue(source)
+    frontierQueue.add(source)
+    covered = [source]
+    paths = {x: f"{source[0]} {source[1]} {source[2]}" for x in board}
+    iteration_count=0
+    found = False
+    result = {
+        "iterations": [],
+        "final_path": ""
+            }
+    def getIterationData():
+        return {
+                "covered_tiles": [x for x in covered], 
+                "frontier": [x for x in frontierQueue.lst],
+                }
+    while not frontierQueue.is_empty():
+        current = frontierQueue.pop()
+        covered.append(current)
+        for movementOption in DEFAULT_MOVEMENT_OPTIONS:
+            nextTile = sum_V3(current, movementOption)
+            if nextTile not in board:
+                continue;
+            if (current, nextTile) in blocked or (nextTile, current) in blocked:
+                continue
+            if nextTile not in covered and nextTile not in frontierQueue.lst:
+                result["iterations"].append(
+                        {"nextTile": nextTile, "current": current, **getIterationData()}
+                        )
+                iteration_count+=1
+                frontierQueue.add(nextTile)
+                distances[nextTile] = distances[current] + 1
+                paths[nextTile] = \
+                        f"{paths[current]} -> {serialize_V3(nextTile)}"
+                if nextTile == goal:
+                    found = True
+                    break
+        if found:
+            break
+    result["final_path"] = paths[goal] if found else "Path not found"
+    return result
+
 
 def pretty_format(arr: List[Tuple[Any, Any, Any]], b: int):
     total = ""
@@ -132,7 +175,8 @@ def a_star_detailed(tiles: List[Vector3], source: Vector3, goal: Vector3,  block
                 continue
             if nextTile not in covered and nextTile not in [x.value for x in frontierQueue.lst]:
                 result["iterations"].append(
-                        {"nextTile": nextTile, "current": current, **getIterationData()})
+                        {"nextTile": nextTile, "current": current, **getIterationData()}
+                        )
                 iteration_count += 1
                 frontierQueue.add(nextTile, cubic_distance(nextTile,goal))
                 distances[nextTile] = distances[current] + 1
@@ -179,8 +223,8 @@ def test_a_star(tiles: List[Vector3], source: Vector3, goal: Vector3,  blocked: 
 
 
 class Algorithm(Enum):
-    Flood = flood3d,
-    Astar = test_a_star, #  , IS NECESSARY
+    Flood = flood3d_detailed,
+    Astar = a_star_detailed, #  , IS NECESSARY
     
     def __call__(self, *args, **kwargs):
         return self.value[0](*args, **kwargs)
@@ -209,7 +253,7 @@ def createPath(
     #    print("Path not found")
     #else:
     #    print(path)
-    path = a_star_detailed(tiles, origin, destination, bannedPaths)
+    path = algorithm(tiles, origin, destination, bannedPaths)
     return path
     
 
@@ -296,6 +340,9 @@ def main():
     with open("data.txt", "r") as f:
         list_of_banned_paths = [cast(Tuple[str, str], x.replace("\n", "").split(" ")) for x in f]
         bannedPaths = parseBannedPaths(list_of_banned_paths)
+    bannedPaths.pop()
+    bannedPaths.pop()
+    bannedPaths.pop()
     config = {
         "origin": serialize_V3(origin),
         "destination": serialize_V3(destination),
@@ -311,7 +358,7 @@ def main():
 
     to_write = {**result, **config}
     print(result["final_path"])
-    with open("result.json", "w") as f:
+    with open("front/result.json", "w") as f:
         f.write(json.dumps(to_write))
 
 

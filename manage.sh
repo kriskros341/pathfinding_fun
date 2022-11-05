@@ -37,6 +37,32 @@ read -N 1 serve
 echo ""
 
 [[ $serve == "y" ]] && {
-    python3 Serve.py
+    netstat=$(netstat -npta | awk '{print $4}')
+    max_port=65535
+    i=5000
+    for ((;i<max_port;i++))
+    do
+        [[ ! $(netstat -atun | grep ":$i\s") ]] && {
+            client_port=$i 
+            break;
+        }
+    done
+    i=$((i+1));
+    echo $i
+    for ((;i<max_port;i++))
+    do
+        [[ ! $(netstat -atun | grep "$i\s") ]] && {
+            server_port=$i 
+            break;
+        }
+    done
+    echo "client started at $client_port"
+    echo "server started at $server_port"
+    cd front
+    npx vite --port $client_port &> "/dev/null" &
+    (sleep 1; xdg-open "http://localhost:$client_port?sp=$server_port") & 
+    #  GIL to SYF.
+    python3 Serve.py $server_port
+    pkill -P $$
 }
 
