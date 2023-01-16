@@ -4,9 +4,12 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import {Color, EdgesGeometry} from 'three'
 
+const historyContainer = document.querySelector("#history_list")!
+const sliderContainer = document.querySelector("#slider_container")!
 const appContainer = document.querySelector("#app")!
-const width = window.innerWidth
-const height = window.innerHeight
+const current: HTMLAnchorElement = document.querySelector("#current")!
+const width = appContainer.clientWidth
+const height = appContainer.clientHeight
 
 const scene = new THREE.Scene()
 
@@ -20,7 +23,7 @@ camera.updateProjectionMatrix()
 const renderer = new THREE.WebGLRenderer( {antialias: true} )
 scene.background = new THREE.TextureLoader().load("/space.jpeg")
 
-renderer.setSize( window.innerWidth, window.innerHeight )
+renderer.setSize( width, height )
 appContainer.appendChild( renderer.domElement )
 
 // Physical things
@@ -207,7 +210,24 @@ class Board {
     }
 }
 
-const data = await fetch(`http://localhost:${serverPort}`).then(response => response.json())
+current.href = `http://localhost:${location.port}/result?sp=${serverPort}`
+const data = await fetch(`http://localhost:${serverPort}/api${location.pathname}`)
+    .then(response => response.json())
+
+const endpoints = await fetch(`http://localhost:${serverPort}/api`)
+    .then(response => response.json())
+
+for (let endpointNumber in endpoints) {
+    const fullEndpointText: string = endpoints.at(endpointNumber)
+    const endpointText = fullEndpointText.match("^.*?[^\.]*")?.at(0)?.slice(1) //cut the dot
+    if (endpointText) {
+        const endpointBox = document.createElement("a")
+        endpointBox.classList.add("endpointBox")
+        endpointBox.href = `http://localhost:${location.port}/${endpointText}${location.search}`
+        endpointBox.innerHTML = endpointText || ""
+        historyContainer.appendChild(endpointBox)
+    }
+}
 
 const board = new Board()
 board.createInnerCubes()
@@ -242,13 +262,14 @@ const create_iterator_handler = () => {
     el.type = "range"
     el.min = "0"
     el.max = len.toString()
+    el.value = "0"
     el.id = "iter"
     el.oninput = (e) => {
         const d = data.iterations[el.value]
         console.log(el.value)
         iter < len && process_input(d)
     }
-    document.body.appendChild(el)
+    sliderContainer.appendChild(el)
     const IteratorButton = document.querySelector("#iter")!
     let iter = 0
     IteratorButton.addEventListener('click', () => {

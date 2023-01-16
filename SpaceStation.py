@@ -248,19 +248,8 @@ def createPath(
             for y in range(1, boardSize[1]+1) 
             for z in range(1, boardSize[2]+1)
         ]
-    #path = algorithm(tiles, origin, destination, bannedPaths)
-    #if(origin != destination and len(path) == 5):
-    #    print("Path not found")
-    #else:
-    #    print(path)
     path = algorithm(tiles, origin, destination, bannedPaths)
     return path
-    
-
-# TODO
-# Abstract board creation away
-# 
-# Abstract movement away
 
 def flattened(startingList: List[Any]):
     result = []
@@ -358,7 +347,7 @@ def main():
 
     to_write = {**result, **config}
     print(result["final_path"])
-    with open("front/result.json", "w") as f:
+    with open("result.detailed.json", "w") as f:
         f.write(json.dumps(to_write))
 
 
