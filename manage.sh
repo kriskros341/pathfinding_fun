@@ -68,28 +68,13 @@ run_alg () {
         }
     }
 
-    algorithms=("Flood" "Astar")
-    select opt in "${algorithms[@]}"
-    do
-        case $opt in
-            "Flood")
-                alg=0
-                break;
-                ;;
-            "Astar")
-                alg=1
-                break;
-                ;;
-        esac
-    done
-
     [ -f result.txt ] && [ -f result.detailed.json ] && {
         newname=$(date -r result.txt +"%Y-%m-%d_%H-%M-%S")
         mv result.txt bups/$newname.txt
         mv result.detailed.json bups/$newname.detailed.json
     }
 
-    c=$(python3 SpaceStation.py $origin $destination $alg)
+    c=$(python3 SpaceStation.py $origin $destination)
     echo $c > result.txt
 }
 

@@ -58,79 +58,6 @@ def serialize_V3(t1: Vector3) -> str:
 
 BlockerList = List[Tuple[Vector3, Vector3]]
 
-def flood3d(board: List[Vector3], source: Vector3, goal: Vector3, blocked: BlockerList):
-    distances = {x: 0 for x in board}
-    frontierQueue = Queue(source)
-    frontierQueue.add(source)
-    covered = [source]
-    paths = {x: f"{source[0]} {source[1]} {source[2]}" for x in board}
-    iteration_count=0
-    found = False
-    while not frontierQueue.is_empty():
-        current = frontierQueue.pop()
-        covered.append(current)
-        for movementOption in DEFAULT_MOVEMENT_OPTIONS:
-            nextTile = sum_V3(current, movementOption)
-            if nextTile not in board:
-                continue;
-            if (current, nextTile) in blocked or (nextTile, current) in blocked:
-                continue
-            if nextTile not in covered and nextTile not in frontierQueue.lst:
-                iteration_count+=1
-                frontierQueue.add(nextTile)
-                distances[nextTile] = distances[current] + 1
-                paths[nextTile] = \
-                        f"{paths[current]} -> {serialize_V3(nextTile)}"
-                if nextTile == goal:
-                    found = True
-        if found:
-            break
-    return paths[goal]
-
-def flood3d_detailed(board: List[Vector3], source: Vector3, goal: Vector3, blocked: BlockerList):
-    distances = {x: 0 for x in board}
-    frontierQueue = Queue(source)
-    frontierQueue.add(source)
-    covered = [source]
-    paths = {x: f"{source[0]} {source[1]} {source[2]}" for x in board}
-    iteration_count=0
-    found = False
-    result = {
-        "iterations": [],
-        "final_path": ""
-            }
-    def getIterationData():
-        return {
-                "covered_tiles": [x for x in covered], 
-                "frontier": [x for x in frontierQueue.lst],
-                }
-    while not frontierQueue.is_empty():
-        current = frontierQueue.pop()
-        covered.append(current)
-        for movementOption in DEFAULT_MOVEMENT_OPTIONS:
-            nextTile = sum_V3(current, movementOption)
-            if nextTile not in board:
-                continue;
-            if (current, nextTile) in blocked or (nextTile, current) in blocked:
-                continue
-            if nextTile not in covered and nextTile not in frontierQueue.lst:
-                result["iterations"].append(
-                        {"nextTile": nextTile, "current": current, **getIterationData()}
-                        )
-                iteration_count+=1
-                frontierQueue.add(nextTile)
-                distances[nextTile] = distances[current] + 1
-                paths[nextTile] = \
-                        f"{paths[current]} -> {serialize_V3(nextTile)}"
-                if nextTile == goal:
-                    found = True
-                    break
-        if found:
-            break
-    result["final_path"] = paths[goal] if found else "Path not found"
-    return result
-
-
 def pretty_format(arr: List[Tuple[Any, Any, Any]], b: int):
     total = ""
     for i, v in enumerate(arr):
@@ -170,7 +97,7 @@ def a_star_detailed(tiles: List[Vector3], source: Vector3, goal: Vector3,  block
         for movementOption in DEFAULT_MOVEMENT_OPTIONS:
             nextTile = sum_V3(current, movementOption)
             if nextTile not in tiles:
-                continue;
+                continue
             if (current, nextTile) in blocked or (nextTile, current) in blocked:
                 continue
             if nextTile not in covered and nextTile not in [x.value for x in frontierQueue.lst]:
@@ -190,54 +117,10 @@ def a_star_detailed(tiles: List[Vector3], source: Vector3, goal: Vector3,  block
     result["final_path"] = paths[goal] if found else "Path not found"
     return result
 
-
-
-def test_a_star(tiles: List[Vector3], source: Vector3, goal: Vector3,  blocked: BlockerList):
-    distances = {x: 0 for x in tiles}
-    paths = {x: f"{source[0]} {source[1]} {source[2]}" for x in tiles}
-    covered = [source]
-    frontierQueue = PrioQueue()
-    frontierQueue.add(source)
-    iteration_count = 0
-    found = False
-    while not frontierQueue.is_empty():
-        current = frontierQueue.pop()
-        covered.append(current)
-        for movementOption in DEFAULT_MOVEMENT_OPTIONS:
-            nextTile = sum_V3(current, movementOption)
-            if nextTile not in tiles:
-                continue;
-            if (current, nextTile) in blocked or (nextTile, current) in blocked:
-                continue
-            if nextTile not in covered and nextTile not in [x.value for x in frontierQueue.lst]:
-                iteration_count += 1
-                frontierQueue.add(nextTile, cubic_distance(nextTile,goal))
-                distances[nextTile] = distances[current] + 1
-                paths[nextTile] = \
-                        f"{paths[current]} -> {nextTile[0]} {nextTile[1]} {nextTile[2]}"
-                if nextTile == goal:
-                    found = True
-        if found:
-            break
-    return paths[goal]
-
-
-class Algorithm(Enum):
-    Flood = flood3d_detailed,
-    Astar = a_star_detailed, #  , IS NECESSARY
-    
-    def __call__(self, *args, **kwargs):
-        return self.value[0](*args, **kwargs)
-
-    @classmethod
-    def get_by_index(cls, idx):
-        return list(Algorithm)[idx-1]
-
 def createPath(
         boardSize: Vector3, 
         origin: Vector3, 
-        destination: Vector3, 
-        algorithm: Algorithm,
+        destination: Vector3,
         bannedPaths: Optional[BlockerList] = None
         ):
     if not bannedPaths:
@@ -248,7 +131,7 @@ def createPath(
             for y in range(1, boardSize[1]+1) 
             for z in range(1, boardSize[2]+1)
         ]
-    path = algorithm(tiles, origin, destination, bannedPaths)
+    path = a_star_detailed(tiles, origin, destination, bannedPaths)
     return path
 
 def flattened(startingList: List[Any]):
@@ -287,7 +170,6 @@ def parseEncodedVertex(string: str) -> Vector3:
     letters_of_interest = re.search(re3, string)
     if not letters_of_interest:
         raise IOError(f"Invalid input value. Can't decode 0-9 for: {string}")
-    string = string[letters_of_interest.span(0)[1]:]
     z = int(letters_of_interest.group(0))
     return (x, y, z)
 
@@ -318,13 +200,11 @@ def main():
     #  get external arguments
     encodedOrigin = sys.argv[1]
     encodedDestination = sys.argv[2]
-    encodedAlgorithm = sys.argv[3]
-    if not (encodedAlgorithm and encodedDestination and encodedOrigin):
+    if not (encodedDestination and encodedOrigin):
         raise Exception("Script missing required arguments")
     #  parse external arguments
     origin = parseEncodedVertex(encodedOrigin)
     destination = parseEncodedVertex(encodedDestination)
-    algorithm = Algorithm.get_by_index(int(encodedAlgorithm))
     bannedPaths = []
     with open("data.txt", "r") as f:
         list_of_banned_paths = [cast(Tuple[str, str], x.replace("\n", "").split(" ")) for x in f]
@@ -340,8 +220,7 @@ def main():
     result = createPath(
             boardSize=(5, 5, 5), 
             origin=origin, 
-            destination=destination, 
-            algorithm=algorithm,
+            destination=destination,
             bannedPaths=bannedPaths
         )
 
