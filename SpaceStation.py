@@ -1,6 +1,6 @@
 from enum import Enum
 import json
-from typing import Generic, Tuple, List, Optional, Type, TypeVar, cast, Any
+from typing import Tuple, List, Optional, Type, TypeVar, cast, Any
 import sys
 import math
 import string
@@ -72,7 +72,7 @@ def cubic_distance(t1, t2):
             (t1[0]-t2[0])**2+
             (t1[1]-t2[1])**2+
             (t1[2]-t2[2])**2
-            )
+    )
 
 def a_star_detailed(tiles: List[Vector3], source: Vector3, goal: Vector3,  blocked: BlockerList):
     distances = {x: 0 for x in tiles}
@@ -82,15 +82,6 @@ def a_star_detailed(tiles: List[Vector3], source: Vector3, goal: Vector3,  block
     frontierQueue.add(source)
     iteration_count = 0
     found = False
-    result = {
-        "iterations": [],
-        "final_path": ""
-            }
-    def getIterationData():
-        return {
-                "covered_tiles": [x for x in covered], 
-                "frontier": frontierQueue.get_items(),
-                }
     while not frontierQueue.is_empty():
         current = frontierQueue.pop()
         covered.append(current)
@@ -101,21 +92,16 @@ def a_star_detailed(tiles: List[Vector3], source: Vector3, goal: Vector3,  block
             if (current, nextTile) in blocked or (nextTile, current) in blocked:
                 continue
             if nextTile not in covered and nextTile not in [x.value for x in frontierQueue.lst]:
-                result["iterations"].append(
-                        {"nextTile": nextTile, "current": current, **getIterationData()}
-                        )
                 iteration_count += 1
                 frontierQueue.add(nextTile, cubic_distance(nextTile,goal))
                 distances[nextTile] = distances[current] + 1
                 paths[nextTile] = \
                         f"{paths[current]} -> {nextTile[0]} {nextTile[1]} {nextTile[2]}"
                 if nextTile == goal:
-                    found = True
-                    break
+                    return paths[nextTile]
         if found:
             break
-    result["final_path"] = paths[goal] if found else "Path not found"
-    return result
+    return "Nie znaleziono drogi"
 
 def createPath(
         boardSize: Vector3, 
@@ -133,17 +119,6 @@ def createPath(
         ]
     path = a_star_detailed(tiles, origin, destination, bannedPaths)
     return path
-
-def flattened(startingList: List[Any]):
-    result = []
-    def helper(outerItem: Any):
-        if not outerItem.__iter__ or isinstance(outerItem, str):
-            result.append(outerItem)
-        else:
-            for innerItem in outerItem:
-                helper(innerItem)
-    helper(startingList)
-    return result
 
 
 def alpha_to_num(c: str):
@@ -182,20 +157,6 @@ def parseBannedPaths(data: List[Tuple[str, str]]) -> List[Edge]:
         results.append(result)
     return results
 
-
-T = TypeVar('T')
-def collect_groups_of(data: List[Any], target_length: int, as_type: Type[T] = None) -> List[T]:
-    if len(data) % target_length != 0:
-        raise Exception(f"Data of length {len(data)} can't be collected in groups of {target_length}")
-    results = []
-    for idx in range(0, len(data), target_length):
-        result = data[idx:idx + target_length]
-        if as_type:
-            result = cast(T, tuple(result))
-        results.append(result)
-    return results
-
-
 def main():
     #  get external arguments
     encodedOrigin = sys.argv[1]
@@ -224,8 +185,8 @@ def main():
             bannedPaths=bannedPaths
         )
 
-    to_write = {**result, **config}
-    print(result["final_path"])
+    to_write = {"final_path": result, **config}
+    print(result)
     with open("result.detailed.json", "w") as f:
         f.write(json.dumps(to_write))
 
